@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+
 use App\Models\Post;
-use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class PostController extends Controller
 {
+
+    // we can also try auth inside web php
     public function __construct(){
-        $this->middleware('auth')->only('create', 'destroy', 'edit');
+        $this->middleware('auth')->only('create', 'edit', 'destroy');
     }
 
     /**
@@ -19,8 +23,11 @@ class PostController extends Controller
      */
     public function index()
     {
-        $post = Post::get();
-        return view('posts.index', compact('post'));
+        $user = User::find(Auth::id()); 
+        $posts = $user->posts()->orderBy('created_at','desc')->get();
+        $count = $user->posts()->where('title','!=','')->count();
+
+        return view('posts.post', compact('posts', 'count'));
     }
 
     /**
@@ -41,10 +48,12 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
+        //
         $request->validate([
             'title' => 'required|unique:posts|max:225',
             'description' => 'required'
         ]);
+
         if($request->hasFile('img')){
             $filenameWithExt = $request->file('img')->getClientOriginalName();
             $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
@@ -55,10 +64,15 @@ class PostController extends Controller
             $fileNameToStore = '';
         }
 
+        // $post = new Post();
+        // $post->title = $request->title;
+        // $post->description = $request->description;
+        // $post->img = $fileNameToStore;
+        // $post->save();
         $post = new Post();
-        $post->title = $request->title;
-        $post->description = $request->description;
+        $post->fill($request->all());
         $post->img = $fileNameToStore;
+        $post->user_id = auth()->user()->id;
         $post->save();
 
         return redirect('/posts');
@@ -70,9 +84,11 @@ class PostController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show(Post $post)
     {
-        $post = Post::find($id);
+        $post = $post->id;
+        $post = Post::where('id', $post)->get();
+
         return view('posts.show', compact('post'));
     }
 
@@ -84,6 +100,7 @@ class PostController extends Controller
      */
     public function edit($id)
     {
+        //
         $post = Post::find($id);
         return view('posts.edit', compact('post'));
     }
@@ -97,6 +114,7 @@ class PostController extends Controller
      */
     public function update(Request $request, $id)
     {
+        //
         $post = Post::find($id);
         $post->title = $request->title;
         $post->description = $request->description;
@@ -113,8 +131,7 @@ class PostController extends Controller
      */
     public function destroy($id)
     {
-        $post = Post::find($id);
-        $post->delete();
+        $post = Post::destroy($id);
 
         return redirect('/posts');
     }
